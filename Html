@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Management System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="header">
+        <div class="brand">
+            <span class="logo">📚</span>
+            <div>
+                <h1>Library Management</h1>
+                <p>Book Records & Issue Management</p>
+            </div>
+        </div>
+        <span class="status">● System Active</span>
+    </header>
+
+    <main class="container">
+
+        <section class="welcome">
+            <div>
+                <h2>Library Dashboard</h2>
+                <p>Manage books, track availability, and handle issues.</p>
+            </div>
+            <button class="primary-btn" id="addBookBtn">+ Add New Book</button>
+        </section>
+
+        <section class="stats">
+            <div class="stat-card">
+                <span class="stat-icon">📚</span>
+                <p>Total Book Titles</p>
+                <h2 id="totalTitles">0</h2>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">📖</span>
+                <p>Total Copies</p>
+                <h2 id="totalCopies">0</h2>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">✅</span>
+                <p>Available Copies</p>
+                <h2 id="availableCopies">0</h2>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">📤</span>
+                <p>Issued Copies</p>
+                <h2 id="issuedCopies">0</h2>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <h2>Book Catalogue</h2>
+                    <p>Search, filter and manage library books.</p>
+                </div>
+            </div>
+
+            <div class="filters">
+                <input type="search" id="searchInput"
+                    placeholder="🔍 Search title, author or ISBN...">
+
+                <select id="categoryFilter">
+                    <option value="">All Categories</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Programming">Programming</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Science">Science</option>
+                    <option value="Literature">Literature</option>
+                    <option value="General">General</option>
+                </select>
+
+                <select id="availabilityFilter">
+                    <option value="">All Availability</option>
+                    <option value="available">Available</option>
+                    <option value="unavailable">Out of Stock</option>
+                </select>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Book Details</th>
+                            <th>ISBN</th>
+                            <th>Category</th>
+                            <th>Total</th>
+                            <th>Available</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookTableBody"></tbody>
+                </table>
+            </div>
+
+            <p id="emptyMessage" class="empty-message" hidden>
+                No books found. Add a new book to get started.
+            </p>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <h2>Issue & Return Management</h2>
+                    <p>Track borrowed books and manage returns.</p>
+                </div>
+            </div>
+
+            <form id="issueForm" class="issue-form">
+                <div class="field">
+                    <label for="studentName">Student Name</label>
+                    <input id="studentName" type="text"
+                        placeholder="Enter student name" required>
+                </div>
+
+                <div class="field">
+                    <label for="studentId">Student ID</label>
+                    <input id="studentId" type="text"
+                        placeholder="Enter student ID" required>
+                </div>
+
+                <div class="field">
+                    <label for="issueBook">Select Book</label>
+                    <select id="issueBook" required>
+                        <option value="">Select a book</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="issueQuantity">Quantity</label>
+                    <input id="issueQuantity" type="number"
+                        value="1" min="1" step="1" required>
+                </div>
+
+                <button type="submit" class="primary-btn">
+                    Issue Book
+                </button>
+            </form>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Student ID</th>
+                            <th>Book</th>
+                            <th>Quantity</th>
+                            <th>Issue Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="issueTableBody"></tbody>
+                </table>
+            </div>
+
+            <p id="issueEmptyMessage" class="empty-message" hidden>
+                No book issue records available.
+            </p>
+        </section>
+
+        <footer>
+            <p>Library Management System | Academic Project</p>
+        </footer>
+
+    </main>
+
+    <!-- Add / Edit Book Modal -->
+    <div class="modal" id="bookModal" hidden>
+        <div class="modal-content">
+            <div class="modal-heading">
+                <div>
+                    <h2 id="modalTitle">Add New Book</h2>
+                    <p>Enter the book information below.</p>
+                </div>
+                <button type="button" class="close-btn"
+                    id="closeModal" aria-label="Close">&times;</button>
+            </div>
+
+            <form id="bookForm">
+                <input type="hidden" id="bookId">
+
+                <div class="field">
+                    <label for="bookTitle">Book Title *</label>
+                    <input id="bookTitle" type="text" required maxlength="120">
+                </div>
+
+                <div class="field">
+                    <label for="bookAuthor">Author *</label>
+                    <input id="bookAuthor" type="text" required maxlength="100">
+                </div>
+
+                <div class="field">
+                    <label for="bookISBN">ISBN *</label>
+                    <input id="bookISBN" type="text" required maxlength="30">
+                </div>
+
+                <div class="field">
+                    <label for="bookCategory">Category *</label>
+                    <select id="bookCategory" required>
+                        <option value="">Select category</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Programming">Programming</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Science">Science</option>
+                        <option value="Literature">Literature</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="bookQuantity">Total Quantity *</label>
+                    <input id="bookQuantity" type="number"
+                        min="1" step="1" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="secondary-btn"
+                        id="cancelModal">Cancel</button>
+                    <button type="submit" class="primary-btn"
+                        id="saveBookBtn">Save Book</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
