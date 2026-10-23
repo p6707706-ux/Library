@@ -1,0 +1,504 @@
+
+const STORAGE_BOOKS = "library_books_v1";
+const STORAGE_ISSUES = "library_issues_v1";
+
+const $ = (id) => document.getElementById(id);
+
+function loadData(key, fallback) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+let books = loadData(STORAGE_BOOKS, [
+    {
+        id: 1,
+        title: "Introduction to Python",
+        author: "John Smith",
+        isbn: "978100000001",
+        category: "Programming",
+        quantity: 5
+    },
+    {
+        id: 2,
+        title: "Computer Fundamentals",
+        author: "Peter Norton",
+        isbn: "978100000002",
+        category: "Computer Science",
+        quantity: 4
+    },
+    {
+        id: 3,
+        title: "Discrete Mathematics",
+        author: "Kenneth Rosen",
+        isbn: "978100000003",
+        category: "Mathematics",
+        quantity: 3
+    },
+    {
+        id: 4,
+        title: "Basic Science",
+        author: "David Brown",
+        isbn: "978100000004",
+        category: "Science",
+        quantity: 6
+    }
+]);
+
+let issues = loadData(STORAGE_ISSUES, []);
+let toastTimer;
+
+function saveData() {
+    localStorage.setItem(STORAGE_BOOKS, JSON.stringify(books));
+    localStorage.setItem(STORAGE_ISSUES, JSON.stringify(issues));
+}
+
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+}
+
+function showToast(message) {
+    const toast = $("toast");
+    toast.textContent = message;
+    toast.classList.add("show");
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+    }, 2800);
+}
+
+function getBook(bookId) {
+    return books.find(book => book.id === Number(bookId));
+}
+
+function getActiveIssuedQuantity(bookId) {
+    return issues
+        .filter(issue =>
+            issue.bookId === Number(bookId) &&
+            issue.status === "Issued"
+        )
+        .reduce((sum, issue) => sum + issue.quantity, 0);
+}
+
+function getAvailableQuantity(book) {
+    return book.quantity - getActiveIssuedQuantity(book.id);
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString + "T00:00:00");
+    return date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+    });
+}
+
+// DASHBOARD
+function renderDashboard() {
+    const totalCopies = books.reduce(
+        (sum, book) => sum + book.quantity, 0
+    );
+
+    const issuedCopies = issues
+        .filter(issue => issue.status === "Issued")
+        .reduce((sum, issue) => sum + issue.quantity, 0);
+
+    $("totalTitles").textContent = books.length;
+    $("totalCopies").textContent = totalCopies;
+    $("issuedCopies").textContent = issuedCopies;
+    $("availableCopies").textContent = totalCopies - issuedCopies;
+}
+
+// BOOK CATALOGUE
+function renderBooks() {
+    const search = $("searchInput").value.trim().toLowerCase();
+    const category = $("categoryFilter").value;
+    const availability = $("availabilityFilter").value;
+
+    const filteredBooks = books.filter(book => {
+        const matchesSearch = [
+            book.title,
+            book.author,
+            book.isbn
+        ].some(value => value.toLowerCase().includes(search));
+
+        const matchesCategory =
+            !category || book.category === category;
+
+        const available = getAvailableQuantity(book);
+
+        const matchesAvailability =
+            !availability ||
+            (availability === "available" && available > 0) ||
+            (availability === "unavailable" && available === 0);
+
+        return matchesSearch &&
+            matchesCategory &&
+            matchesAvailability;
+    });
+
+    $("bookTableBody").innerHTML = filteredBooks.map(book => {
+        const available = getAvailableQuantity(book);
+        const status = available > 0 ? "Available" : "Out of Stock";
+
+        return `
+            <tr>
+                <td>
+                    <strong>${escapeHTML(book.title)}</strong>
+                    <span class="subtext">By ${escapeHTML(book.author)}</span>
+                </td>
+                <td>${escapeHTML(book.isbn)}</td>
+                <td>${escapeHTML(book.category)}</td>
+                <td>${book.quantity}</td>
+                <td>${available}</td>
+                <td>
+                    <span class="pill ${available > 0 ? "available" : "unavailable"}">
+                        ${status}
+                    </span>
+                </td>
+                <td>
+                    <div class="actions">
+                        <button class="action-btn edit-btn"
+                            data-action="edit" data-id="${book.id}">
+                            Edit
+                        </button>
+                        <button class="action-btn delete-btn"
+                            data-action="delete" data-id="${book.id}">
+                            Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    $("emptyMessage").hidden = filteredBooks.length !== 0;
+
+    renderDashboard();
+    renderBookOptions();
+}
+
+// ISSUE BOOK DROPDOWN
+function renderBookOptions() {
+    const select = $("issueBook");
+    const selectedValue = select.value;
+
+    select.innerHTML = '<option value="">Select a book</option>';
+
+    books.forEach(book => {
+        const available = getAvailableQuantity(book);
+
+        if (available > 0) {
+            const option = document.createElement("option");
+            option.value = book.id;
+            option.textContent =
+                `${book.title} (${available} available)`;
+            select.appendChild(option);
+        }
+    });
+
+    if ([...select.options].some(
+        option => option.value === selectedValue
+    )) {
+        select.value = selectedValue;
+    }
+}
+
+// MODAL OPEN / CLOSE
+function openModal(book = null) {
+    $("bookForm").reset();
+    $("bookId").value = "";
+
+    if (book) {
+        $("modalTitle").textContent = "Edit Book";
+        $("saveBookBtn").textContent = "Update Book";
+
+        $("bookId").value = book.id;
+        $("bookTitle").value = book.title;
+        $("bookAuthor").value = book.author;
+        $("bookISBN").value = book.isbn;
+        $("bookCategory").value = book.category;
+        $("bookQuantity").value = book.quantity;
+    } else {
+        $("modalTitle").textContent = "Add New Book";
+        $("saveBookBtn").textContent = "Save Book";
+        $("bookQuantity").value = 1;
+    }
+
+    $("bookModal").hidden = false;
+    $("bookTitle").focus();
+}
+
+function closeModal() {
+    $("bookModal").hidden = true;
+}
+
+$("addBookBtn").addEventListener("click", () => openModal());
+
+$("closeModal").addEventListener("click", closeModal);
+$("cancelModal").addEventListener("click", closeModal);
+
+$("bookModal").addEventListener("click", event => {
+    if (event.target === $("bookModal")) {
+        closeModal();
+    }
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+        closeModal();
+    }
+});
+
+// ADD / EDIT BOOK
+$("bookForm").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const id = $("bookId").value;
+    const title = $("bookTitle").value.trim();
+    const author = $("bookAuthor").value.trim();
+    const isbn = $("bookISBN").value.trim();
+    const category = $("bookCategory").value;
+    const quantity = Number($("bookQuantity").value);
+
+    if (!title || !author || !isbn || !category) {
+        showToast("Please fill in all required fields.");
+        return;
+    }
+
+    if (!Number.isSafeInteger(quantity) || quantity < 1) {
+        showToast("Quantity must be a whole number of at least 1.");
+        return;
+    }
+
+    const duplicateISBN = books.some(book =>
+        book.isbn.toLowerCase() === isbn.toLowerCase() &&
+        book.id !== Number(id)
+    );
+
+    if (duplicateISBN) {
+        showToast("A book with this ISBN already exists.");
+        return;
+    }
+
+    if (id) {
+        const book = getBook(id);
+
+        if (!book) {
+            showToast("Book record not found.");
+            return;
+        }
+
+        const currentlyIssued = getActiveIssuedQuantity(book.id);
+
+        if (quantity < currentlyIssued) {
+            showToast(
+                `At least ${currentlyIssued} copies must remain in stock.`
+            );
+            return;
+        }
+
+        Object.assign(book, {
+            title,
+            author,
+            isbn,
+            category,
+            quantity
+        });
+
+        showToast("Book details updated successfully.");
+    } else {
+        books.push({
+            id: Date.now(),
+            title,
+            author,
+            isbn,
+            category,
+            quantity
+        });
+
+        showToast("New book added successfully.");
+    }
+
+    saveData();
+    closeModal();
+    renderBooks();
+    renderIssues();
+});
+
+// EDIT / DELETE BOOK BUTTONS
+$("bookTableBody").addEventListener("click", event => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const id = Number(button.dataset.id);
+    const action = button.dataset.action;
+    const book = getBook(id);
+
+    if (!book) return;
+
+    if (action === "edit") {
+        openModal(book);
+    }
+
+    if (action === "delete") {
+        const activeQuantity = getActiveIssuedQuantity(id);
+
+        if (activeQuantity > 0) {
+            showToast(
+                "Return all issued copies before deleting this book."
+            );
+            return;
+        }
+
+        const confirmed = confirm(
+            `Delete "${book.title}" from the catalogue?`
+        );
+
+        if (!confirmed) return;
+
+        books = books.filter(item => item.id !== id);
+
+        // Keep the history of past issue and return transactions.
+        saveData();
+        renderBooks();
+        renderIssues();
+        showToast("Book deleted successfully.");
+    }
+});
+
+// SEARCH AND FILTER
+$("searchInput").addEventListener("input", renderBooks);
+$("categoryFilter").addEventListener("change", renderBooks);
+$("availabilityFilter").addEventListener("change", renderBooks);
+
+// ISSUE BOOK
+$("issueForm").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const studentName = $("studentName").value.trim();
+    const studentId = $("studentId").value.trim();
+    const bookId = Number($("issueBook").value);
+    const quantity = Number($("issueQuantity").value);
+
+    const book = getBook(bookId);
+
+    if (!studentName || !studentId || !book) {
+        showToast("Please enter student details and select a book.");
+        return;
+    }
+
+    if (!Number.isSafeInteger(quantity) || quantity < 1) {
+        showToast("Enter a valid whole-number quantity.");
+        return;
+    }
+
+    if (quantity > getAvailableQuantity(book)) {
+        showToast("Not enough copies are available.");
+        return;
+    }
+
+    issues.push({
+        id: Date.now(),
+        studentName,
+        studentId,
+        bookId,
+        quantity,
+        issueDate: new Date().toISOString().slice(0, 10),
+        status: "Issued"
+    });
+
+    saveData();
+    $("issueForm").reset();
+    $("issueQuantity").value = 1;
+
+    renderBooks();
+    renderIssues();
+
+    showToast("Book issued successfully.");
+});
+
+// ISSUE HISTORY AND RETURN
+function renderIssues() {
+    const sortedIssues = [...issues].reverse();
+
+    $("issueTableBody").innerHTML = sortedIssues.map(issue => {
+        const book = getBook(issue.bookId);
+        const bookTitle = book ? book.title : "Deleted book";
+
+        const isIssued = issue.status === "Issued";
+
+        return `
+            <tr>
+                <td><strong>${escapeHTML(issue.studentName)}</strong></td>
+                <td>${escapeHTML(issue.studentId)}</td>
+                <td>${escapeHTML(bookTitle)}</td>
+                <td>${issue.quantity}</td>
+                <td>${formatDate(issue.issueDate)}</td>
+                <td>
+                    <span class="pill ${isIssued ? "issued" : "returned"}">
+                        ${issue.status}
+                    </span>
+                </td>
+                <td>
+                    ${
+                        isIssued
+                        ? `<button class="action-btn return-btn"
+                            data-return-id="${issue.id}">
+                            Return Book
+                           </button>`
+                        : `<span class="subtext">Completed</span>`
+                    }
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    $("issueEmptyMessage").hidden = issues.length !== 0;
+}
+
+$("issueTableBody").addEventListener("click", event => {
+    const button = event.target.closest("button[data-return-id]");
+    if (!button) return;
+
+    const issueId = Number(button.dataset.returnId);
+    const issue = issues.find(item => item.id === issueId);
+
+    if (!issue || issue.status !== "Issued") {
+        showToast("This transaction is already completed.");
+        return;
+    }
+
+    const confirmed = confirm(
+        `Confirm return of ${issue.quantity} book copy/copies?`
+    );
+
+    if (!confirmed) return;
+
+    issue.status = "Returned";
+    issue.returnDate = new Date().toISOString().slice(0, 10);
+
+    saveData();
+    renderBooks();
+    renderIssues();
+
+    showToast("Book returned successfully.");
+});
+
+// INITIALIZE APPLICATION
+function initializeApp() {
+    renderBooks();
+    renderIssues();
+}
+
+initializeApp();
